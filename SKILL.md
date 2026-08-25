@@ -12,6 +12,7 @@ Conversational self-serve for **curated game-access roles** only. The same role 
 
 1. **Game-access catalog only.** Never add/remove staff, admin, moderator, color, nitro/boost, mute, `@everyone`, bot-managed, or any role not returned by `catalog` / `lookup`.
 2. **Never use `discord-manage` `role-add` / `role-remove` for players.** That skill is owner-only and can touch any role.
+2b. **Never use the Discord `message` tool `role-add` / `role-remove` / `role-info` for this.** Always use `roles.sh` so the catalog allowlist applies. If `roles.sh add` returns 50013, report the hierarchy message from the tool. Do not invent a `#get-roles-here` workaround.
 3. **Only the talking user.** Always pass their Discord user ID as `caller_discord_id`. Never change someone else's roles.
 4. **Do not invent role IDs.** Only use IDs from this skill's tools.
 5. If they ask for a non-game role: refuse briefly ("that is not a self-serve game role") and point them at `/get-roles` for game roles. Do not name or hint at privileged roles.
@@ -86,7 +87,7 @@ You may pass a catalog `roleId` snowflake instead of a label. Non-catalog snowfl
 3. Prefer the tool `message` field; keep replies to 1-3 friendly lines.
 4. Point at `/get-roles` for browsing or multi-role menus. Never direct people to `#get-roles-here` for self-serve.
 5. After a successful `add`, you may optionally use the `zordon-api` skill (`/games/schedule?days=7` and `/channels`) to mention upcoming games that match the new role. If lookup fails, omit games (do not say you could not look them up).
-6. Discord `50013` / Missing Permissions: say Zordon cannot assign that game role until the bot role is above it in Server Settings; still name the game role they asked for.
+6. Discord `50013` / Missing Permissions: quote the tool `message` (bot role hierarchy). Name the **catalog game label** (e.g. **Dragon Delves**). Never say "grab it in `#get-roles-here`".
 7. Catalog labels are the source of truth (e.g. **Dragon Delves**). Do not invent alternate Discord role names like "Dragon Slayers".
 
 ## Catalog sync
