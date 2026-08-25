@@ -101,8 +101,14 @@ try:
     details = json.loads(body) if body else body
 except Exception:
     details = body
-print(json.dumps({"error": "Discord API error", "status": int(os.environ["HTTP_CODE"]), "details": details}))
-' >&2
+payload = {"error": "Discord API error", "status": int(os.environ["HTTP_CODE"]), "details": details}
+if int(os.environ["HTTP_CODE"]) == 403:
+    payload["message"] = (
+        "Zordon cannot assign that game role yet: the bot role must sit above "
+        "the game role in Server Settings > Roles. Ask an admin to fix hierarchy."
+    )
+print(json.dumps(payload, indent=2))
+'
   return 1
 }
 
