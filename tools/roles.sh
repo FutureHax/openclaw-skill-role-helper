@@ -112,6 +112,103 @@ print(json.dumps(payload, indent=2))
   return 1
 }
 
+# Soft-fail Zordon API GET (returns [] on failure)
+zordon_get() {
+  local endpoint="$1"
+  if [[ -z "${ZORDON_API_URL:-}" || -z "${ZORDON_API_KEY:-}" ]]; then
+    echo "[]"
+    return 0
+  fi
+  curl -sfk --connect-timeout 5 --max-time 15 \
+    -H "Authorization: Bearer ${ZORDON_API_KEY}" \
+    -H "Accept: application/json" \
+    "${ZORDON_API_URL}${endpoint}" 2>/dev/null || echo "[]"
+}
+
+emit_adjustment_result() {
+  local action="$1"
+  local caller_id="$2"
+  local role_id="$3"
+  local role_label="$4"
+  local general_ch="$5"
+  local upcoming_json="${6:-[]}"
+
+  ACTION="$action" CALLER_ID="$caller_id" ROLE_ID="$role_id" \
+    ROLE_LABEL="$role_label" GENERAL_CH="$general_ch" \
+    UPCOMING_JSON="$upcoming_json" run_py <<'PY'
+import json, os
+from games import format_adjustment_message
+
+action = os.environ["ACTION"]
+label = os.environ["ROLE_LABEL"]
+channel = os.environ.get("GENERAL_CH") or ""
+try:
+    upcoming = json.loads(os.environ.get("UPCOMING_JSON") or "[]")
+    if not isinstance(upcoming, list):
+        upcoming = []
+except Exception:
+    upcoming = []
+
+message = format_adjustment_message(
+    action=action,
+    label=label,
+    general_channel_id=channel,
+    upcoming_games=upcoming if action == "add" else None,
+)
+print(json.dumps({
+    "ok": True,
+    "action": action,
+    "userId": os.environ["CALLER_ID"],
+    "roleId": os.environ["ROLE_ID"],
+    "label": label,
+    "generalChannelId": channel,
+    "upcomingGames": upcoming if action == "add" else [],
+    "message": message,
+}, indent=2))
+PY
+}
+
+lookup_upcoming_for_role() {
+  local role_id="$1"
+  local channels_json schedule_json
+  channels_json=$(zordon_get "/channels")
+  schedule_json=$(zordon_get "/games/schedule?days=7")
+  ROLE_ID="$role_id" CHANNELS_JSON="$channels_json" SCHEDULE_JSON="$schedule_json" run_py <<'PY'
+import json, os
+from games import filter_games_in_lookahead, match_games_to_role_ids
+
+def as_list(raw):
+    try:
+        data = json.loads(raw or "[]")
+    except Exception:
+        return []
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for key in ("channels", "games", "sessions", "schedule", "data"):
+            if isinstance(data.get(key), list):
+                return data[key]
+    return []
+
+role_id = os.environ["ROLE_ID"]
+mappings = as_list(os.environ.get("CHANNELS_JSON"))
+games = as_list(os.environ.get("SCHEDULE_JSON"))
+# schedule endpoint already filters days, but keep lookahead for safety
+matched = match_games_to_role_ids(games, mappings, [role_id])
+matched = filter_games_in_lookahead(matched)
+# slim payload for the agent
+slim = []
+for g in matched:
+    slim.append({
+        "id": g.get("id"),
+        "title": g.get("title"),
+        "nextSession": g.get("nextSession"),
+        "system": (g.get("system") or {}).get("name") if isinstance(g.get("system"), dict) else g.get("systemName"),
+    })
+print(json.dumps(slim))
+PY
+}
+
 case "$ACTION" in
   catalog)
     run_py <<'PY'
@@ -232,24 +329,8 @@ PY
         [[ -n "$DISCORD_RESP" ]] && echo "$DISCORD_RESP"
         exit 1
       fi
-      GENERAL_CH="$GENERAL_CH" ROLE_LABEL="$ROLE_LABEL" ROLE_ID="$ROLE_ID" CALLER_ID="$CALLER_ID" run_py <<'PY'
-import json, os
-channel = os.environ.get("GENERAL_CH") or ""
-label = os.environ["ROLE_LABEL"]
-msg = f"Added **{label}**."
-if channel:
-    msg += f" You should now see <#{channel}>."
-msg += " Use `/get-roles` anytime to manage game roles."
-print(json.dumps({
-    "ok": True,
-    "action": "add",
-    "userId": os.environ["CALLER_ID"],
-    "roleId": os.environ["ROLE_ID"],
-    "label": label,
-    "generalChannelId": channel,
-    "message": msg,
-}, indent=2))
-PY
+      UPCOMING=$(lookup_upcoming_for_role "$ROLE_ID" || echo "[]")
+      emit_adjustment_result add "$CALLER_ID" "$ROLE_ID" "$ROLE_LABEL" "$GENERAL_CH" "$UPCOMING"
     else
       set +e
       DISCORD_RESP=$(discord_request DELETE "/guilds/${GUILD_ID}/members/${CALLER_ID}/roles/${ROLE_ID}")
@@ -259,23 +340,7 @@ PY
         [[ -n "$DISCORD_RESP" ]] && echo "$DISCORD_RESP"
         exit 1
       fi
-      GENERAL_CH="$GENERAL_CH" ROLE_LABEL="$ROLE_LABEL" ROLE_ID="$ROLE_ID" CALLER_ID="$CALLER_ID" run_py <<'PY'
-import json, os
-channel = os.environ.get("GENERAL_CH") or ""
-label = os.environ["ROLE_LABEL"]
-msg = f"Removed **{label}**."
-if channel:
-    msg += f" You may lose access to <#{channel}>."
-print(json.dumps({
-    "ok": True,
-    "action": "remove",
-    "userId": os.environ["CALLER_ID"],
-    "roleId": os.environ["ROLE_ID"],
-    "label": label,
-    "generalChannelId": channel,
-    "message": msg,
-}, indent=2))
-PY
+      emit_adjustment_result remove "$CALLER_ID" "$ROLE_ID" "$ROLE_LABEL" "$GENERAL_CH" "[]"
     fi
     ;;
 
