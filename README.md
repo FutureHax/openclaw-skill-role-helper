@@ -1,33 +1,53 @@
 # openclaw-skill-role-helper
 
-An [OpenClaw](https://clawd.bot) agent skill: Look up the Discord role needed for a game and direct players to #get-roles-here to self-assign.
+OpenClaw skill for Zordon: look up, add, and remove **curated game-access Discord roles** only (same allowlist as Zordon `/get-roles`).
 
-## Installation
+Staff, color, mute, boost, and every other guild role are unreachable. The tool enforces the allowlist before any Discord write.
 
-Copy the skill to the OpenClaw skills directory:
+Closes conversational gaps for "I can't see the channel" / "give me Tomb of Annihilation" without using owner-only `discord-manage`.
+
+## Installation (Zordon only)
 
 ```bash
-# Shared (all agents)
-scp -r role-helper your-vps:~/.openclaw/skills/role-helper
+# Preferred: per-agent workspace
+scp -r . openclaw:~/.openclaw/workspaces/zordon/skills/role-helper
 
-# Per-agent
-scp -r role-helper your-vps:~/.openclaw/workspaces/<agent>/skills/role-helper
+# Do not install to shared ~/.openclaw/skills/ unless every agent should have it
 ```
 
 Restart the gateway after installing:
 
 ```bash
-openclaw gateway restart
+ssh openclaw 'openclaw gateway restart'
 ```
 
-## Skill contents
+## Contents
 
 ```
 role-helper/
-├── SKILL.md           # Skill definition and agent instructions
-├── README.md          # This file
-└── tools/             # Implementation scripts
-    └── lookup.sh      # Game-to-role lookup tool
+├── SKILL.md              # Agent instructions
+├── README.md
+├── catalog.json          # Allowlisted game-access roles (from Zordon)
+├── lib/                  # Catalog load, resolve, gates
+├── tests/                # Offline allowlist tests
+└── tools/
+    ├── roles.sh          # catalog | status | lookup | add | remove
+    ├── lookup.sh         # thin wrapper → roles.sh lookup
+    └── regen-catalog.sh  # refresh catalog.json from Zordon roleMenus.js
+```
+
+## Regenerate catalog
+
+When Zordon's `ROLE_MENU_CATALOG` changes:
+
+```bash
+bash tools/regen-catalog.sh /path/to/zordon/src/data/roleMenus.js
+```
+
+## Tests
+
+```bash
+python3 tests/test_gates.py -v
 ```
 
 ## License

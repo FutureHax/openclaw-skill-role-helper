@@ -1,0 +1,98 @@
+{
+  "source": "zordon ROLE_MENU_CATALOG (src/data/roleMenus.js)",
+  "updatedNote": "Regenerate with: bash tools/regen-catalog.sh /path/to/zordon/src/data/roleMenus.js",
+  "categories": [
+    {
+      "id": "dnd-5e",
+      "label": "D&D 5e",
+      "roles": [
+        {
+          "roleId": "1346332824772542474",
+          "label": "Oblivion's Dance Through Time",
+          "generalChannelId": "1346333029030694953"
+        },
+        {
+          "roleId": "1300554812861190259",
+          "label": "Misc one-shots",
+          "generalChannelId": "1300806392743202877"
+        },
+        {
+          "roleId": "1303015950529859604",
+          "label": "Adventures in Isliare",
+          "generalChannelId": "1303015506101534783"
+        },
+        {
+          "roleId": "1352039411251937421",
+          "label": "Dungeons Deep & Perilous",
+          "generalChannelId": "1352229739481534485"
+        },
+        {
+          "roleId": "1307376645438705704",
+          "label": "Where Evil Lives",
+          "generalChannelId": "1299778535367380992"
+        },
+        {
+          "roleId": "1383963461448368229",
+          "label": "The Secret of the Porvenir",
+          "generalChannelId": "1383963902928228473"
+        },
+        {
+          "roleId": "1383963391781109851",
+          "label": "A House Divided",
+          "generalChannelId": "1383963186725781564"
+        },
+        {
+          "roleId": "1383947277843955773",
+          "label": "Librus Nocturnum",
+          "generalChannelId": "1383947478516109333"
+        },
+        {
+          "roleId": "1384058185559838783",
+          "label": "The Side Quest Society",
+          "generalChannelId": "1384057951345578024"
+        },
+        {
+          "roleId": "1391218705894998028",
+          "label": "Dragon Delves",
+          "generalChannelId": "1391218431243714683"
+        },
+        {
+          "roleId": "1303485019011944550",
+          "label": "Chaos Survival Mode",
+          "generalChannelId": "1303482660894670969"
+        },
+        {
+          "roleId": "1400202365331837051",
+          "label": "Tomb of Annihilation",
+          "generalChannelId": "1400202203775369448"
+        }
+      ]
+    },
+    {
+      "id": "other",
+      "label": "Other systems",
+      "roles": [
+        {
+          "roleId": "1322063277898989660",
+          "label": "Pirate Borg",
+          "generalChannelId": "1322063509718302730"
+        },
+        {
+          "roleId": "1345427958310899793",
+          "label": "Monster of the Week",
+          "generalChannelId": "1313579512608591892"
+        },
+        {
+          "roleId": "1313563645912809482",
+          "label": "Ten Candles",
+          "generalChannelId": "1312284624021356574"
+        },
+        {
+          "roleId": "1364427257648644116",
+          "label": "Sunderfolk",
+          "generalChannelId": "1364427084910559292"
+        }
+      ]
+    }
+  ]
+}
