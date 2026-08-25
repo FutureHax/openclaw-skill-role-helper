@@ -224,7 +224,14 @@ PY
     GENERAL_CH=$(GATE_JSON="$GATE_JSON" run_py_c 'import json,os; print(json.loads(os.environ["GATE_JSON"])["role"].get("generalChannelId") or "")')
 
     if [[ "$ACTION" == "add" ]]; then
-      discord_request PUT "/guilds/${GUILD_ID}/members/${CALLER_ID}/roles/${ROLE_ID}" >/dev/null || exit 1
+      set +e
+      DISCORD_RESP=$(discord_request PUT "/guilds/${GUILD_ID}/members/${CALLER_ID}/roles/${ROLE_ID}")
+      DISCORD_RC=$?
+      set -e
+      if [[ "$DISCORD_RC" -ne 0 ]]; then
+        [[ -n "$DISCORD_RESP" ]] && echo "$DISCORD_RESP"
+        exit 1
+      fi
       GENERAL_CH="$GENERAL_CH" ROLE_LABEL="$ROLE_LABEL" ROLE_ID="$ROLE_ID" CALLER_ID="$CALLER_ID" run_py <<'PY'
 import json, os
 channel = os.environ.get("GENERAL_CH") or ""
@@ -244,7 +251,14 @@ print(json.dumps({
 }, indent=2))
 PY
     else
-      discord_request DELETE "/guilds/${GUILD_ID}/members/${CALLER_ID}/roles/${ROLE_ID}" >/dev/null || exit 1
+      set +e
+      DISCORD_RESP=$(discord_request DELETE "/guilds/${GUILD_ID}/members/${CALLER_ID}/roles/${ROLE_ID}")
+      DISCORD_RC=$?
+      set -e
+      if [[ "$DISCORD_RC" -ne 0 ]]; then
+        [[ -n "$DISCORD_RESP" ]] && echo "$DISCORD_RESP"
+        exit 1
+      fi
       GENERAL_CH="$GENERAL_CH" ROLE_LABEL="$ROLE_LABEL" ROLE_ID="$ROLE_ID" CALLER_ID="$CALLER_ID" run_py <<'PY'
 import json, os
 channel = os.environ.get("GENERAL_CH") or ""
