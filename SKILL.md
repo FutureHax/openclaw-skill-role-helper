@@ -80,15 +80,30 @@ You may pass a catalog `roleId` snowflake instead of a label. Non-catalog snowfl
 
 **Confirm:** if `lookup` returns a unique match, you may `add`/`remove`. If ambiguous, list options and wait. Do not dump the full catalog unless they ask to browse (prefer `/get-roles` for browsing).
 
-## How to respond
+## How to respond after add / remove
 
-1. Resolve the inbound Discord user ID; that is always `caller_discord_id`.
-2. For named games they want to play: `lookup`, then **immediately** `add` when the match is unique (they already asked for the change). Do not stop after naming the role.
-3. Prefer the tool `message` field; keep replies to 1-3 friendly lines.
-4. Point at `/get-roles` for browsing or multi-role menus. Never direct people to `#get-roles-here` for self-serve.
-5. After a successful `add`, you may optionally use the `zordon-api` skill (`/games/schedule?days=7` and `/channels`) to mention upcoming games that match the new role. If lookup fails, omit games (do not say you could not look them up).
-6. Discord `50013` / Missing Permissions: quote the tool `message` (bot role hierarchy). Name the **catalog game label** (e.g. **Dragon Delves**). Never say "grab it in `#get-roles-here`".
-7. Catalog labels are the source of truth (e.g. **Dragon Delves**). Do not invent alternate Discord role names like "Dragon Slayers".
+Post the tool `message` field **as-is** (same shape as the `/get-roles` menu bot). It already includes only non-empty sections:
+
+```
+**Added:** Dragon Delves
+**Gained access to:** <#channelId>
+
+**Open games (next 7 days):**
+- Dragon Delves - A Baker's Doesn't (<t:…:F>, <t:…:R>)
+```
+
+or
+
+```
+**Removed:** Pirate Borg
+**Lost access to:** <#channelId>
+```
+
+Rules:
+- Do not rewrite into a different format.
+- Do not invent games. If there is no **Open games** section, omit games entirely (do not say you could not look them up).
+- Catalog labels only (e.g. **Dragon Delves**), never Discord nicknames like "Dragon Slayers".
+- Discord `50013`: quote the tool `message` about bot role hierarchy. Never send people to `#get-roles-here`.
 
 ## Catalog sync
 
@@ -104,4 +119,4 @@ Then redeploy this skill to the Zordon workspace.
 
 - `DISCORD_BOT_TOKEN` (required for `status` / `add` / `remove`)
 - Optional: `DISCORD_GUILD_ID` (defaults from OpenClaw config, else FutureHax guild)
-- Optional for post-grant schedule hints: `ZORDON_API_URL`, `ZORDON_API_KEY` via `zordon-api`
+- Optional: `ZORDON_API_URL`, `ZORDON_API_KEY` (used after `add` for 7-day open games; soft-fails if missing)
