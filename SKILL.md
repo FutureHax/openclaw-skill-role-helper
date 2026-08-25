@@ -1,78 +1,104 @@
 ---
 name: role-helper
-description: Look up the Discord role needed for a game and direct players to #get-roles-here to self-assign the role.
-metadata: {"openclaw":{"requires":{"env":["ZORDON_API_URL","ZORDON_API_KEY","DISCORD_BOT_TOKEN"]}}}
+description: Help Discord users look up, add, and remove curated game-access roles (same allowlist as /get-roles). Use when someone cannot see a game channel, asks for a game role, wants to drop a game role, or asks what game roles they have. Never manages staff, color, mute, boost, or other non-game roles.
+metadata: {"openclaw":{"requires":{"env":["DISCORD_BOT_TOKEN"]}}}
 ---
 
-# Role Helper
+# Role Helper (game-access only)
 
-Look up which Discord role a player needs to access a game channel, and direct them to the self-assignment channel if they don't have it.
+Conversational self-serve for **curated game-access roles** only. The same role IDs as Zordon `/get-roles` / `ROLE_MENU_CATALOG`. The tool hard-refuses anything else before calling Discord.
 
-## When to use this skill
+## Red lines (mandatory)
 
-Use this skill when:
+1. **Game-access catalog only.** Never add/remove staff, admin, moderator, color, nitro/boost, mute, `@everyone`, bot-managed, or any role not returned by `catalog` / `lookup`.
+2. **Never use `discord-manage` `role-add` / `role-remove` for players.** That skill is owner-only and can touch any role.
+3. **Only the talking user.** Always pass their Discord user ID as `caller_discord_id`. Never change someone else's roles.
+4. **Do not invent role IDs.** Only use IDs from this skill's tools.
+5. If they ask for a non-game role: refuse briefly ("that is not a self-serve game role") and point them at `/get-roles` for game roles. Do not name or hint at privileged roles.
 
-- A player says they **can't access** a game channel or can't see it
-- A player asks **how to join** a specific game or get access
-- A player asks **what role** they need for a game
-- A player mentions they're **missing permissions** or can't post in a game channel
-- A player is new and asking how to get started with a specific game
+## When to use
 
-## How to use
+- Cannot see / access a game channel
+- "Give me Tomb of Annihilation" / "add Pirate Borg"
+- "Drop / remove my Ten Candles role"
+- "What game roles do I have?"
+- "How do I get roles?" (prefer pointing at `/get-roles`; use this skill if they name a game)
 
-Run the lookup tool via exec:
+## Tools
+
+Paths are absolute on the OpenClaw host. Scripts load `~/.openclaw/.env` when present.
 
 ```bash
-bash {baseDir}/tools/lookup.sh <game_name_or_search>
+bash /home/marvin/.openclaw/workspaces/zordon/skills/role-helper/tools/roles.sh <action> [args...]
 ```
 
-### Examples
+If the workspace copy is missing, the shared path is:
 
 ```bash
-# Look up role for a game by name
-bash {baseDir}/tools/lookup.sh "Curse of Strahd"
-
-# Partial match works too
-bash {baseDir}/tools/lookup.sh strahd
-
-# Search by system or keyword
-bash {baseDir}/tools/lookup.sh "pathfinder"
+bash /home/marvin/.openclaw/skills/role-helper/tools/roles.sh <action> [args...]
 ```
 
-## Output format
+### `catalog` — list allowlisted game roles
 
-Returns JSON with:
-
-```json
-{
-  "search": "strahd",
-  "matched_games": [
-    {"id": 42, "name": "Curse of Strahd"}
-  ],
-  "matched_roles": [
-    {"id": "123456789", "name": "Curse of Strahd", "mentionable": true}
-  ],
-  "get_roles_channel": "https://discord.com/channels/1296607220221345835/1383948225710522378",
-  "message": "To access the game channel, you need the **Curse of Strahd** role. Head over to <#1383948225710522378> and grab it!"
-}
+```bash
+bash /home/marvin/.openclaw/workspaces/zordon/skills/role-helper/tools/roles.sh catalog
 ```
+
+### `lookup <query>` — match catalog labels only
+
+```bash
+bash /home/marvin/.openclaw/workspaces/zordon/skills/role-helper/tools/roles.sh lookup "Tomb of Annihilation"
+bash /home/marvin/.openclaw/workspaces/zordon/skills/role-helper/tools/roles.sh lookup tomb
+```
+
+Returns JSON. Use `message` when present. If `ambiguous match`, ask which label. Never treat a non-match as permission to call Discord yourself.
+
+Legacy wrapper (same catalog-only behavior):
+
+```bash
+bash /home/marvin/.openclaw/workspaces/zordon/skills/role-helper/tools/lookup.sh "strahd"
+```
+
+### `status <caller_discord_id>` — their game roles only
+
+```bash
+bash /home/marvin/.openclaw/workspaces/zordon/skills/role-helper/tools/roles.sh status <caller_discord_id>
+```
+
+Returns only catalog roles the member already has (other guild roles are hidden on purpose).
+
+### `add` / `remove` — self-serve write (gated)
+
+```bash
+bash /home/marvin/.openclaw/workspaces/zordon/skills/role-helper/tools/roles.sh add <caller_discord_id> "Pirate Borg"
+bash /home/marvin/.openclaw/workspaces/zordon/skills/role-helper/tools/roles.sh remove <caller_discord_id> "Pirate Borg"
+```
+
+You may pass a catalog `roleId` snowflake instead of a label. Non-catalog snowflakes are refused with no Discord write.
+
+**Confirm:** if `lookup` returns a unique match, you may `add`/`remove`. If ambiguous, list options and wait. Do not dump the full catalog unless they ask to browse (prefer `/get-roles` for browsing).
 
 ## How to respond
 
-1. Run the lookup tool with the game name the player mentioned
-2. Use the `message` field from the response as the basis of your reply
-3. If `matched_roles` is empty but `matched_games` has results, the game exists but the role name may differ — still direct them to <#1383948225710522378>
-4. If nothing matches, let the player know and suggest they check <#1383948225710522378> to browse all available game roles
+1. Resolve the inbound Discord user ID; that is always `caller_discord_id`.
+2. For named games: `lookup`, then `add`/`remove` when unique and they clearly want the change.
+3. Prefer the tool `message` field; keep replies to 1-3 friendly lines.
+4. Point at `/get-roles` for browsing or multi-role menus. Do **not** send people to the old `#get-roles-here` reaction board as the primary path.
+5. After a successful `add`, you may optionally use the `zordon-api` skill (`/games/schedule?days=7` and `/channels`) to mention upcoming games that match the new role. If lookup fails, omit games (do not say you could not look them up).
+6. Discord `50013` / Missing Permissions: say Zordon cannot assign that game role until the bot role is above it in Server Settings; still name the game role they asked for.
 
-## Formatting for Discord
+## Catalog sync
 
-- Use the pre-formatted `message` from the JSON response — it already uses Discord channel mention syntax (`<#1383948225710522378>`)
-- Bold the role name so it stands out
-- Keep the response friendly and concise (1-3 lines)
-- If multiple roles match, list them all
+`catalog.json` is copied from Zordon `src/data/roleMenus.js`. When Zordon's menu catalog changes, regenerate:
 
-## Guidelines
+```bash
+bash tools/regen-catalog.sh /path/to/zordon/src/data/roleMenus.js
+```
 
-- This is a **read-only** helper — it does NOT assign roles, only tells players where to get them
-- The self-assignment channel is always <#1383948225710522378> (#get-roles-here)
-- If a player seems confused about the process, explain: go to the channel, find the game role, and click/react to assign it to yourself
+Then redeploy this skill to the Zordon workspace.
+
+## Env
+
+- `DISCORD_BOT_TOKEN` (required for `status` / `add` / `remove`)
+- Optional: `DISCORD_GUILD_ID` (defaults from OpenClaw config, else FutureHax guild)
+- Optional for post-grant schedule hints: `ZORDON_API_URL`, `ZORDON_API_KEY` via `zordon-api`
