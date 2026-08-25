@@ -40,7 +40,12 @@ if [[ ! -f "$CATALOG_FILE" ]]; then
 fi
 
 run_py() {
-  PYTHONPATH="${LIB}${PYTHONPATH:+:$PYTHONPATH}" python3 - "$@"
+  # Read a Python program from stdin (heredoc). Do not use for -c one-liners.
+  PYTHONPATH="${LIB}${PYTHONPATH:+:$PYTHONPATH}" python3 -
+}
+
+run_py_c() {
+  PYTHONPATH="${LIB}${PYTHONPATH:+:$PYTHONPATH}" python3 -c "$1"
 }
 
 detect_guild_id() {
@@ -103,7 +108,7 @@ print(json.dumps({"error": "Discord API error", "status": int(os.environ["HTTP_C
 
 case "$ACTION" in
   catalog)
-    run_py - <<'PY'
+    run_py <<'PY'
 import json, sys
 from catalog import flatten_roles, load_catalog
 catalog = load_catalog()
@@ -114,7 +119,7 @@ PY
 
   lookup)
     QUERY="${1:?Usage: roles.sh lookup <query>}"
-    QUERY="$QUERY" run_py - <<'PY'
+    QUERY="$QUERY" run_py <<'PY'
 import json, os
 from catalog import load_catalog
 from resolve import lookup_catalog
@@ -155,7 +160,7 @@ PY
     fi
     GUILD_ID="$(detect_guild_id)"
     MEMBER_JSON=$(discord_request GET "/guilds/${GUILD_ID}/members/${CALLER_ID}") || exit 1
-    MEMBER_JSON="$MEMBER_JSON" CALLER_ID="$CALLER_ID" run_py - <<'PY'
+    MEMBER_JSON="$MEMBER_JSON" CALLER_ID="$CALLER_ID" run_py <<'PY'
 import json, os
 from catalog import filter_member_roles_to_catalog, load_catalog
 
@@ -183,8 +188,9 @@ PY
     ROLE_QUERY="${2:?Usage: roles.sh ${ACTION} <caller_discord_id> <role_id_or_label>}"
 
     # Gate BEFORE any Discord write (and before requiring token for resolve failures)
+    set +e
     GATE_JSON=$(
-      CALLER_ID="$CALLER_ID" ROLE_QUERY="$ROLE_QUERY" run_py - <<'PY'
+      CALLER_ID="$CALLER_ID" ROLE_QUERY="$ROLE_QUERY" run_py <<'PY'
 import json, os, sys
 from catalog import load_catalog
 from gates import gate_write
@@ -194,23 +200,26 @@ result = gate_write(catalog, os.environ["CALLER_ID"], os.environ["ROLE_QUERY"])
 print(json.dumps(result))
 sys.exit(0 if result.get("ok") else 2)
 PY
-    ) || {
+    )
+    GATE_RC=$?
+    set -e
+    if [[ "$GATE_RC" -ne 0 ]]; then
       echo "$GATE_JSON"
       exit 1
-    }
+    fi
 
     if [[ -z "${DISCORD_BOT_TOKEN:-}" ]]; then
       json_error "DISCORD_BOT_TOKEN is not set"
     fi
 
     GUILD_ID="$(detect_guild_id)"
-    ROLE_ID=$(echo "$GATE_JSON" | run_py -c 'import json,sys; print(json.load(sys.stdin)["role"]["roleId"])')
-    ROLE_LABEL=$(echo "$GATE_JSON" | run_py -c 'import json,sys; print(json.load(sys.stdin)["role"]["label"])')
-    GENERAL_CH=$(echo "$GATE_JSON" | run_py -c 'import json,sys; print(json.load(sys.stdin)["role"].get("generalChannelId") or "")')
+    ROLE_ID=$(GATE_JSON="$GATE_JSON" run_py_c 'import json,os; print(json.loads(os.environ["GATE_JSON"])["role"]["roleId"])')
+    ROLE_LABEL=$(GATE_JSON="$GATE_JSON" run_py_c 'import json,os; print(json.loads(os.environ["GATE_JSON"])["role"]["label"])')
+    GENERAL_CH=$(GATE_JSON="$GATE_JSON" run_py_c 'import json,os; print(json.loads(os.environ["GATE_JSON"])["role"].get("generalChannelId") or "")')
 
     if [[ "$ACTION" == "add" ]]; then
       discord_request PUT "/guilds/${GUILD_ID}/members/${CALLER_ID}/roles/${ROLE_ID}" >/dev/null || exit 1
-      GENERAL_CH="$GENERAL_CH" ROLE_LABEL="$ROLE_LABEL" ROLE_ID="$ROLE_ID" CALLER_ID="$CALLER_ID" run_py - <<'PY'
+      GENERAL_CH="$GENERAL_CH" ROLE_LABEL="$ROLE_LABEL" ROLE_ID="$ROLE_ID" CALLER_ID="$CALLER_ID" run_py <<'PY'
 import json, os
 channel = os.environ.get("GENERAL_CH") or ""
 label = os.environ["ROLE_LABEL"]
@@ -230,7 +239,7 @@ print(json.dumps({
 PY
     else
       discord_request DELETE "/guilds/${GUILD_ID}/members/${CALLER_ID}/roles/${ROLE_ID}" >/dev/null || exit 1
-      GENERAL_CH="$GENERAL_CH" ROLE_LABEL="$ROLE_LABEL" ROLE_ID="$ROLE_ID" CALLER_ID="$CALLER_ID" run_py - <<'PY'
+      GENERAL_CH="$GENERAL_CH" ROLE_LABEL="$ROLE_LABEL" ROLE_ID="$ROLE_ID" CALLER_ID="$CALLER_ID" run_py <<'PY'
 import json, os
 channel = os.environ.get("GENERAL_CH") or ""
 label = os.environ["ROLE_LABEL"]

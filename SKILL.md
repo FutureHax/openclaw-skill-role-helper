@@ -15,6 +15,7 @@ Conversational self-serve for **curated game-access roles** only. The same role 
 3. **Only the talking user.** Always pass their Discord user ID as `caller_discord_id`. Never change someone else's roles.
 4. **Do not invent role IDs.** Only use IDs from this skill's tools.
 5. If they ask for a non-game role: refuse briefly ("that is not a self-serve game role") and point them at `/get-roles` for game roles. Do not name or hint at privileged roles.
+6. **You CAN flip game roles from chat.** When they name a game and want access, run `roles.sh add` (after unique `lookup`). Do **not** say you cannot flip it. Do **not** send them to `#get-roles-here`. Prefer `/get-roles` only for browsing many roles.
 
 ## When to use
 
@@ -81,11 +82,12 @@ You may pass a catalog `roleId` snowflake instead of a label. Non-catalog snowfl
 ## How to respond
 
 1. Resolve the inbound Discord user ID; that is always `caller_discord_id`.
-2. For named games: `lookup`, then `add`/`remove` when unique and they clearly want the change.
+2. For named games they want to play: `lookup`, then **immediately** `add` when the match is unique (they already asked for the change). Do not stop after naming the role.
 3. Prefer the tool `message` field; keep replies to 1-3 friendly lines.
-4. Point at `/get-roles` for browsing or multi-role menus. Do **not** send people to the old `#get-roles-here` reaction board as the primary path.
+4. Point at `/get-roles` for browsing or multi-role menus. Never direct people to `#get-roles-here` for self-serve.
 5. After a successful `add`, you may optionally use the `zordon-api` skill (`/games/schedule?days=7` and `/channels`) to mention upcoming games that match the new role. If lookup fails, omit games (do not say you could not look them up).
 6. Discord `50013` / Missing Permissions: say Zordon cannot assign that game role until the bot role is above it in Server Settings; still name the game role they asked for.
+7. Catalog labels are the source of truth (e.g. **Dragon Delves**). Do not invent alternate Discord role names like "Dragon Slayers".
 
 ## Catalog sync
 
